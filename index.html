@@ -8,10 +8,9 @@
     <meta name="theme-color" content="#1a1a1a">
     <title>道痕日记</title>
     <style>
-        /* 全局重置 */
-        body { margin: 0; padding: 0; background-color: #F5F0EB; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; color: #333; padding-bottom: 80px; }
+        body { margin: 0; padding: 0; background-color: #F5F0EB; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; color: #333; padding-bottom: 100px; }
         
-        /* 1. 顶部导航栏 - 修改了定位和动画 */
+        /* 1. 顶部导航栏 */
         .navbar {
             background-color: #1a1a1a;
             padding: 15px 20px;
@@ -20,25 +19,25 @@
             justify-content: space-between;
             align-items: center;
             color: white;
-            
-            /* 关键修改：改为 fixed 以便做动画，并添加过渡效果 */
             position: fixed; 
             top: 0;
             left: 0;
             width: 100%;
-            box-sizing: border-box; /* 确保宽度计算正确 */
+            box-sizing: border-box;
             z-index: 1000;
-            transition: transform 0.3s ease; /* 滑动动画 */
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            opacity: 1;
+            /* 增加一个阴影，让分层更明显 */
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         }
 
-        /* 隐藏状态：向上移出屏幕 */
         .navbar.navbar-hidden {
             transform: translateY(-100%);
+            opacity: 0;
         }
 
         .nav-left h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: 1px; }
         .nav-left p { margin: 5px 0 0; font-size: 12px; color: #888; }
-
         .nav-right { display: flex; align-items: center; gap: 15px; }
 
         .btn-today {
@@ -62,13 +61,17 @@
 
         #datePicker { display: none; }
 
-        /* 2. 日期显示区 - 增加顶部 padding，防止被导航栏遮挡 */
+        /* 2. 日期显示区 - 修改了 padding-top */
         .date-section {
-            padding: 100px 20px 20px; /* 顶部留白变大，因为导航栏是 fixed 了 */
+            /* 关键修改：加大顶部留白，防止被导航栏遮挡 */
+            /* 导航栏大概 80px 高 + 一点安全距离 = 130px */
+            padding: 130px 20px 20px; 
             display: flex;
             justify-content: space-between;
             align-items: center;
             background-color: #F5F0EB; /* 确保背景色覆盖 */
+            position: relative; /* 确保层级正常 */
+            z-index: 1;
         }
         .current-date-text { font-size: 24px; font-weight: bold; color: #1a1a1a; }
         
@@ -111,6 +114,7 @@
             left: 20px;
             right: 20px;
             z-index: 100;
+            pointer-events: none;
         }
         .btn-save {
             width: 100%;
@@ -123,10 +127,19 @@
             font-weight: 600;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             cursor: pointer;
-            transition: transform 0.1s;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            opacity: 0;
+            transform: translateY(20px);
+            pointer-events: none;
         }
+        
+        .btn-save.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
         .btn-save:active { transform: scale(0.98); background-color: #333; }
-        .btn-save.hidden { display: none; }
 
         .toast {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -182,23 +195,46 @@
         let currentDate = new Date();
         let isTodayView = true;
 
-        // --- 新增：导航栏滚动隐藏逻辑 ---
+        // --- 滚动监听逻辑 ---
         let lastScrollTop = 0;
         const navbar = document.getElementById('navbar');
-        
-        window.addEventListener('scroll', function() {
+        const saveBtn = document.getElementById('saveBtn');
+        let ticking = false;
+
+        function checkScroll() {
             let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-            
-            // 向下滚动超过 50px，隐藏导航栏
-            if (scrollTop > lastScrollTop && scrollTop > 50) {
+            let windowHeight = window.innerHeight;
+            let documentHeight = document.documentElement.scrollHeight;
+
+            // 1. 顶部导航栏逻辑
+            if (scrollTop === 0) {
+                navbar.classList.remove('navbar-hidden');
+            } else if (scrollTop > lastScrollTop && scrollTop > 50) {
                 navbar.classList.add('navbar-hidden');
             } else {
-                // 向上滚动，显示导航栏
                 navbar.classList.remove('navbar-hidden');
             }
+
+            // 2. 底部保存按钮逻辑
+            let isNearBottom = (scrollTop + windowHeight) >= (documentHeight - 100);
+            
+            if (isTodayView && isNearBottom) {
+                saveBtn.classList.add('visible');
+            } else {
+                saveBtn.classList.remove('visible');
+            }
+
             lastScrollTop = scrollTop;
-        });
-        // --------------------------------
+            ticking = false;
+        }
+
+        window.addEventListener('scroll', function() {
+            if (!ticking) {
+                window.requestAnimationFrame(checkScroll);
+                ticking = true;
+            }
+        }, { passive: true });
+        // -------------------
 
         function init() {
             document.getElementById('datePicker').addEventListener('change', function(e) {
@@ -223,13 +259,7 @@
                           dateObj.getMonth() === today.getMonth() &&
                           dateObj.getDate() === today.getDate();
 
-            const saveBtn = document.getElementById('saveBtn');
-            if (isTodayView) {
-                saveBtn.classList.remove('hidden');
-                saveBtn.innerText = "保存今日";
-            } else {
-                saveBtn.classList.add('hidden');
-            }
+            saveBtn.classList.remove('visible');
 
             const container = document.getElementById('app');
             container.innerHTML = '';
@@ -266,6 +296,8 @@
                 card.appendChild(input);
                 container.appendChild(card);
             });
+            
+            setTimeout(checkScroll, 100);
         }
 
         function saveDataToLocal(key) {
@@ -289,7 +321,6 @@
 
         function goToToday() {
             loadDiary(new Date());
-            // 回到顶部时确保导航栏显示
             window.scrollTo(0, 0);
         }
 
@@ -314,6 +345,7 @@
     </script>
 </body>
 </html>
+
 
 
 
