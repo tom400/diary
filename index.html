@@ -8,14 +8,13 @@
     <meta name="theme-color" content="#1a1a1a">
     <title>道痕日记</title>
     <style>
-        /* 关键修改：加大底部留白，防止按钮遮挡文字 */
         body { 
             margin: 0; 
             padding: 0; 
             background-color: #F5F0EB; 
             font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; 
             color: #333; 
-            padding-bottom: 160px; /* 之前是 100px，现在加大到 160px，留出按钮的空间 */
+            padding-bottom: 160px; 
         }
         
         /* 1. 顶部导航栏 */
@@ -33,13 +32,13 @@
             width: 100%;
             box-sizing: border-box;
             z-index: 1000;
-            /* 确保动画平滑 */
+            /* 动画效果 */
             transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1), opacity 0.3s ease;
             opacity: 1;
             box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         }
 
-        /* 隐藏状态：向上移出 + 变透明 */
+        /* 隐藏状态 */
         .navbar.navbar-hidden {
             transform: translateY(-100%);
             opacity: 0;
@@ -136,7 +135,7 @@
             cursor: pointer;
             transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
             
-            /* 默认隐藏状态 */
+            /* 默认隐藏 */
             opacity: 0;
             transform: translateY(20px);
             pointer-events: none;
@@ -192,7 +191,6 @@
     <div class="toast" id="toast">✓ 已保存</div>
 
     <script>
-        // 完整的 7 个问题列表
         const questions = [
             "1. 今天最起波澜的一件事是什么。",
             "2. 当时我的第一反应是什么。",
@@ -206,8 +204,7 @@
         let currentDate = new Date();
         let isTodayView = true;
 
-        // --- 滚动监听逻辑 ---
-        let lastScrollTop = 0;
+        // --- 滚动监听逻辑 (严格模式) ---
         const navbar = document.getElementById('navbar');
         const saveBtn = document.getElementById('saveBtn');
         let ticking = false;
@@ -217,17 +214,14 @@
             let windowHeight = window.innerHeight;
             let documentHeight = document.documentElement.scrollHeight;
 
-            // 1. 顶部导航栏逻辑：向下滑隐藏，向上滑显示
-            if (scrollTop === 0) {
+            // 1. 顶部导航栏逻辑：只有回到顶部 (<50px) 才显示，其他时候全部隐藏
+            if (scrollTop < 50) {
                 navbar.classList.remove('navbar-hidden');
-            } else if (scrollTop > lastScrollTop && scrollTop > 50) {
-                navbar.classList.add('navbar-hidden');
             } else {
-                navbar.classList.remove('navbar-hidden');
+                navbar.classList.add('navbar-hidden');
             }
 
             // 2. 底部保存按钮逻辑：滑到底部显示
-            // 距离底部 150px 时就开始显示，给用户预留空间
             let isNearBottom = (scrollTop + windowHeight) >= (documentHeight - 150);
             
             if (isTodayView && isNearBottom) {
@@ -236,7 +230,6 @@
                 saveBtn.classList.remove('visible');
             }
 
-            lastScrollTop = scrollTop;
             ticking = false;
         }
 
@@ -357,6 +350,7 @@
     </script>
 </body>
 </html>
+
 
 
 
