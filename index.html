@@ -9,20 +9,31 @@
     <title>道痕日记</title>
     <style>
         /* 全局重置 */
-        body { margin: 0; padding: 0; background-color: #F5F0EB; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; color: #333; padding-bottom: 80px; /* 给底部按钮留位置 */ }
+        body { margin: 0; padding: 0; background-color: #F5F0EB; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; color: #333; padding-bottom: 80px; }
         
-        /* 1. 顶部深色导航栏 */
+        /* 1. 顶部导航栏 - 修改了定位和动画 */
         .navbar {
             background-color: #1a1a1a;
             padding: 15px 20px;
-            padding-top: 45px;
+            padding-top: 45px; /* 适配刘海屏 */
             display: flex;
             justify-content: space-between;
             align-items: center;
             color: white;
-            position: sticky;
+            
+            /* 关键修改：改为 fixed 以便做动画，并添加过渡效果 */
+            position: fixed; 
             top: 0;
-            z-index: 100;
+            left: 0;
+            width: 100%;
+            box-sizing: border-box; /* 确保宽度计算正确 */
+            z-index: 1000;
+            transition: transform 0.3s ease; /* 滑动动画 */
+        }
+
+        /* 隐藏状态：向上移出屏幕 */
+        .navbar.navbar-hidden {
+            transform: translateY(-100%);
         }
 
         .nav-left h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: 1px; }
@@ -48,22 +59,16 @@
             cursor: pointer;
             padding: 5px 10px;
         }
-        .btn-export {
-            background: none;
-            border: none;
-            color: #ccc;
-            font-size: 12px;
-            cursor: pointer;
-        }
 
         #datePicker { display: none; }
 
-        /* 2. 日期显示区 */
+        /* 2. 日期显示区 - 增加顶部 padding，防止被导航栏遮挡 */
         .date-section {
-            padding: 20px;
+            padding: 100px 20px 20px; /* 顶部留白变大，因为导航栏是 fixed 了 */
             display: flex;
             justify-content: space-between;
             align-items: center;
+            background-color: #F5F0EB; /* 确保背景色覆盖 */
         }
         .current-date-text { font-size: 24px; font-weight: bold; color: #1a1a1a; }
         
@@ -120,21 +125,14 @@
             cursor: pointer;
             transition: transform 0.1s;
         }
-        .btn-save:active {
-            transform: scale(0.98);
-            background-color: #333;
-        }
-        /* 如果是历史页面，隐藏保存按钮 */
-        .btn-save.hidden {
-            display: none;
-        }
+        .btn-save:active { transform: scale(0.98); background-color: #333; }
+        .btn-save.hidden { display: none; }
 
         .toast {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: rgba(0,0,0,0.8); color: white; padding: 15px 25px;
             border-radius: 12px; font-size: 16px; opacity: 0; transition: opacity 0.3s; pointer-events: none;
-            text-align: center;
-            z-index: 200;
+            text-align: center; z-index: 200;
         }
     </style>
 </head>
@@ -143,7 +141,7 @@
     <input type="date" id="datePicker">
 
     <!-- 顶部导航 -->
-    <div class="navbar">
+    <div class="navbar" id="navbar">
         <div class="nav-left">
             <h1>道痕日记</h1>
             <p>每天写一页，捞出你的石头</p>
@@ -184,6 +182,24 @@
         let currentDate = new Date();
         let isTodayView = true;
 
+        // --- 新增：导航栏滚动隐藏逻辑 ---
+        let lastScrollTop = 0;
+        const navbar = document.getElementById('navbar');
+        
+        window.addEventListener('scroll', function() {
+            let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            
+            // 向下滚动超过 50px，隐藏导航栏
+            if (scrollTop > lastScrollTop && scrollTop > 50) {
+                navbar.classList.add('navbar-hidden');
+            } else {
+                // 向上滚动，显示导航栏
+                navbar.classList.remove('navbar-hidden');
+            }
+            lastScrollTop = scrollTop;
+        });
+        // --------------------------------
+
         function init() {
             document.getElementById('datePicker').addEventListener('change', function(e) {
                 const selectedDate = new Date(e.target.value);
@@ -207,7 +223,6 @@
                           dateObj.getMonth() === today.getMonth() &&
                           dateObj.getDate() === today.getDate();
 
-            // 控制底部按钮显示
             const saveBtn = document.getElementById('saveBtn');
             if (isTodayView) {
                 saveBtn.classList.remove('hidden');
@@ -230,7 +245,7 @@
                 const input = document.createElement('textarea');
                 input.placeholder = "在这里写下你的答案...";
                 input.rows = 2;
-                input.id = `input_${index}`; // 给每个输入框加 ID，方便保存时获取
+                input.id = `input_${index}`;
                 
                 if (savedData[index] !== undefined) {
                     input.value = savedData[index];
@@ -243,7 +258,6 @@
                     input.placeholder = "（历史存档）";
                 } else {
                     input.addEventListener('input', function() {
-                        // 自动保存逻辑保持不变
                         saveDataToLocal(storageKey);
                     });
                 }
@@ -254,7 +268,6 @@
             });
         }
 
-        // 核心保存函数
         function saveDataToLocal(key) {
             let savedData = {};
             questions.forEach((_, index) => {
@@ -266,19 +279,18 @@
             localStorage.setItem(key, JSON.stringify(savedData));
         }
 
-        // 底部按钮点击事件
         function forceSave() {
             if (!isTodayView) return;
-
             const today = new Date();
             const storageKey = `diary_${today.getFullYear()}_${today.getMonth() + 1}_${today.getDate()}`;
-            
             saveDataToLocal(storageKey);
             showToast("✓ 今日日记已保存", true);
         }
 
         function goToToday() {
             loadDiary(new Date());
+            // 回到顶部时确保导航栏显示
+            window.scrollTo(0, 0);
         }
 
         function triggerHistory() {
@@ -291,7 +303,6 @@
             toast.innerText = msg;
             toast.style.opacity = '1';
             if(big) toast.style.transform = 'translate(-50%, -50%) scale(1.1)';
-            
             clearTimeout(toastTimeout);
             toastTimeout = setTimeout(() => {
                 toast.style.opacity = '0';
@@ -303,4 +314,6 @@
     </script>
 </body>
 </html>
+
+
 
